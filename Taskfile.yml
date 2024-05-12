@@ -1,0 +1,48 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  PROJECT: personal-site-v2-420722
+  BUCKET_NAME: mikewilliamsondevstatic
+  CERT_NAME: personalsite-tls
+  DOMAIN_NAME: mikewilliamson.dev
+
+tasks:
+  default:
+    cmds:
+      - task: bucket
+      - task: html
+      - task: public
+      - task: errorpage
+    silent: true
+
+  bucket:
+    cmds:
+    - gcloud storage buckets create gs://{{.BUCKET_NAME}} --default-storage-class=NEARLINE --location=northamerica-northeast1 --uniform-bucket-level-access
+
+  html:
+    cmds:
+    - gcloud storage cp -j *.html gs://{{.BUCKET_NAME}}/
+    - gcloud storage buckets update gs://{{.BUCKET_NAME}} --web-main-page-suffix=index.html --web-error-page=404.html
+
+  icons:
+    cmds:
+    - gcloud storage cp -n -r icons gs://{{.BUCKET_NAME}}/
+
+  public:
+    cmds:
+    - gcloud storage buckets add-iam-policy-binding gs://{{.BUCKET_NAME}} --member=allUsers --role=roles/storage.objectViewer
+
+  certificate:
+    cmds:
+    - gcloud beta compute ssl-certificates create {{.CERT_NAME}} --project=$(PROJECT) --global --description="{{.DOMAIN_NAME}} certificate" --domains={{.DOMAIN_NAME}}
+
+  errorpage:
+    cmds:
+    - gcloud storage buckets update gs://{{.BUCKET_NAME}} --web-main-page-suffix=index.html --web-error-page=404.html
+
+  status:
+    cmds:
+    - gcloud compute ssl-certificates describe {{.CERT_NAME}} --global --format="get(name,managed.status
+    - gcloud compute ssl-certificates describe {{.CERT_NAME}} --global --format="get(managed.domainStatus)"
